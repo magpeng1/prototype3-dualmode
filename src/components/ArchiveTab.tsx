@@ -1,5 +1,7 @@
-import { FileText, Mic } from "lucide-react";
+import { useState } from "react";
+import { FileText, Mic, Play, Pause } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface Entry {
   type: 'text' | 'audio';
@@ -13,6 +15,9 @@ interface ArchiveTabProps {
 }
 
 export const ArchiveTab = ({ entries }: ArchiveTabProps) => {
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [playbackProgress, setPlaybackProgress] = useState<{ [key: number]: number }>({});
+
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -26,6 +31,34 @@ export const ArchiveTab = ({ entries }: ArchiveTabProps) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handlePlayPause = (index: number, duration: number) => {
+    if (playingIndex === index) {
+      // Stop current playback
+      setPlayingIndex(null);
+      setPlaybackProgress(prev => ({ ...prev, [index]: 0 }));
+    } else {
+      // Start new playback
+      setPlayingIndex(index);
+      setPlaybackProgress(prev => ({ ...prev, [index]: 0 }));
+      
+      // Mock playback progress
+      const interval = setInterval(() => {
+        setPlaybackProgress(prev => {
+          const currentProgress = prev[index] || 0;
+          const newProgress = currentProgress + 1;
+          
+          if (newProgress >= duration) {
+            setPlayingIndex(null);
+            clearInterval(interval);
+            return { ...prev, [index]: 0 };
+          }
+          
+          return { ...prev, [index]: newProgress };
+        });
+      }, 1000);
+    }
   };
 
   if (entries.length === 0) {
@@ -63,8 +96,39 @@ export const ArchiveTab = ({ entries }: ArchiveTabProps) => {
                   {entry.content}
                 </p>
               ) : (
-                <div className="text-sm text-foreground">
-                  Voice entry • {formatDuration(entry.duration || 0)}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-foreground">
+                      Voice entry • {formatDuration(entry.duration || 0)}
+                    </div>
+                    <Button
+                      onClick={() => handlePlayPause(index, entry.duration || 0)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      {playingIndex === index ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {playingIndex === index && (
+                    <div className="space-y-1">
+                      <div className="w-full bg-muted rounded-full h-1">
+                        <div 
+                          className="bg-primary h-1 rounded-full transition-all duration-1000"
+                          style={{ 
+                            width: `${((playbackProgress[index] || 0) / (entry.duration || 1)) * 100}%` 
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDuration(playbackProgress[index] || 0)} / {formatDuration(entry.duration || 0)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
